@@ -1,25 +1,37 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import GanttChart from './GanttChart/GanttChart';
 import { Button } from '@/components/ui/button';
 import { Save, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { taskService } from '@/services/TaskService';
+import { GanttTask } from '@/models/GanttTask';
 
 const GanttChartContainer: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [tasks, setTasks] = useState<GanttTask[]>([]);
   const { toast } = useToast();
+
+  // Fetch tasks on component mount
+  useEffect(() => {
+    handleRefresh();
+  }, []);
 
   const handleSaveAll = async () => {
     try {
       setIsSaving(true);
-      // In a real application, you would gather all unsaved changes and send them to the server
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      toast({
-        title: "Tallennettu",
-        description: "Kaikki muutokset on tallennettu onnistuneesti",
-      });
+      // Get the latest tasks from the GanttChart component
+      const success = await taskService.saveAllTasks(tasks);
+      
+      if (success) {
+        toast({
+          title: "Tallennettu",
+          description: "Kaikki muutokset on tallennettu onnistuneesti",
+        });
+      } else {
+        throw new Error("Saving failed");
+      }
     } catch (error) {
       toast({
         title: "Virhe tallennuksessa",
@@ -34,8 +46,10 @@ const GanttChartContainer: React.FC = () => {
   const handleRefresh = async () => {
     try {
       setIsRefreshing(true);
-      // Simulate fetching fresh data
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Fetch fresh data from the service
+      const freshTasks = await taskService.getTasks();
+      setTasks(freshTasks);
+      
       toast({
         title: "Päivitetty",
         description: "Tiedot on päivitetty onnistuneesti",
@@ -49,6 +63,11 @@ const GanttChartContainer: React.FC = () => {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  // Handle task updates from the GanttChart
+  const handleTasksChange = (updatedTasks: GanttTask[]) => {
+    setTasks(updatedTasks);
   };
 
   return (
@@ -74,7 +93,10 @@ const GanttChartContainer: React.FC = () => {
           {isSaving ? "Tallennetaan..." : "Tallenna kaikki"}
         </Button>
       </div>
-      <GanttChart />
+      <GanttChart 
+        initialTasks={tasks} 
+        onTasksChange={handleTasksChange}
+      />
     </div>
   );
 };

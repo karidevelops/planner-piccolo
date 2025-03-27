@@ -1,10 +1,8 @@
 import { GanttTask } from "@/models/GanttTask";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
-// Base URL for the API - in a real app, you'd use an environment variable
-const API_BASE_URL = 'https://api.example.com/api/tasks';
-
-// Example data
+// Example data (used as fallback)
 export const SAMPLE_TASKS: GanttTask[] = [
   {
     id: '1',
@@ -105,49 +103,74 @@ export const SAMPLE_TASKS: GanttTask[] = [
 ];
 
 export class TaskService {
-  private tasks: GanttTask[] = SAMPLE_TASKS;
-  private useApi: boolean = false; // Set to true to use the actual API
+  private useApi: boolean = true; // Set to true to use Supabase
 
-  getTasks(): Promise<GanttTask[]> {
+  async getTasks(): Promise<GanttTask[]> {
     if (this.useApi) {
-      return fetch(API_BASE_URL)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
-          return response.json();
-        })
-        .catch(error => {
+      try {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*');
+        
+        if (error) {
           console.error('Error fetching tasks:', error);
           toast.error('Tehtävien hakeminen epäonnistui');
-          // Fallback to local tasks
-          return [...this.tasks];
-        });
+          // Fallback to sample tasks
+          return [...SAMPLE_TASKS];
+        }
+        
+        // Transform dates from strings to Date objects
+        return data.map((task: any) => ({
+          ...task,
+          startDate: new Date(task.startDate),
+          endDate: new Date(task.endDate),
+          dependencies: task.dependencies || []
+        }));
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+        toast.error('Tehtävien hakeminen epäonnistui');
+        // Fallback to sample tasks
+        return [...SAMPLE_TASKS];
+      }
     }
     
-    return Promise.resolve([...this.tasks]);
+    return Promise.resolve([...SAMPLE_TASKS]);
   }
 
-  updateTask(updatedTask: GanttTask): Promise<GanttTask> {
+  async updateTask(updatedTask: GanttTask): Promise<GanttTask> {
     if (this.useApi) {
-      return fetch(`${API_BASE_URL}/${updatedTask.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedTask)
-      })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
-          return response.json();
-        })
-        .catch(error => {
+      try {
+        // Prepare task for database (convert Date objects to ISO strings)
+        const taskForDb = {
+          ...updatedTask,
+          startDate: updatedTask.startDate.toISOString(),
+          endDate: updatedTask.endDate.toISOString()
+        };
+        
+        const { data, error } = await supabase
+          .from('tasks')
+          .update(taskForDb)
+          .match({ id: updatedTask.id })
+          .select();
+        
+        if (error) {
           console.error('Error updating task:', error);
           toast.error('Tehtävän päivittäminen epäonnistui');
           throw error;
-        });
+        }
+        
+        // Transform back to GanttTask with Date objects
+        return {
+          ...data[0],
+          startDate: new Date(data[0].startDate),
+          endDate: new Date(data[0].endDate),
+          dependencies: data[0].dependencies || []
+        };
+      } catch (error) {
+        console.error('Error updating task:', error);
+        toast.error('Tehtävän päivittäminen epäonnistui');
+        throw error;
+      }
     }
     
     // Local update
@@ -156,6 +179,39 @@ export class TaskService {
       this.tasks[index] = { ...updatedTask };
     }
     return Promise.resolve({ ...updatedTask });
+  }
+
+  // Function to save all tasks at once
+  async saveAllTasks(tasks: GanttTask[]): Promise<boolean> {
+    if (this.useApi) {
+      try {
+        // Prepare tasks for database
+        const tasksForDb = tasks.map(task => ({
+          ...task,
+          startDate: task.startDate.toISOString(),
+          endDate: task.endDate.toISOString()
+        }));
+        
+        // Use upsert to handle both inserts and updates
+        const { error } = await supabase
+          .from('tasks')
+          .upsert(tasksForDb);
+        
+        if (error) {
+          console.error('Error saving tasks:', error);
+          toast.error('Tehtävien tallentaminen epäonnistui');
+          return false;
+        }
+        
+        return true;
+      } catch (error) {
+        console.error('Error saving tasks:', error);
+        toast.error('Tehtävien tallentaminen epäonnistui');
+        return false;
+      }
+    }
+    
+    return Promise.resolve(true);
   }
 
   // Function to calculate if a task is late based on current date and progress

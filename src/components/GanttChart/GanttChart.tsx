@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { GanttTask, DisplayTask } from '@/models/GanttTask';
 import { daysBetween, addDays } from '@/utils/dateUtils';
@@ -18,9 +17,13 @@ const MAX_COLUMN_WIDTH = 60;
 
 interface GanttChartProps {
   initialTasks?: GanttTask[];
+  onTasksChange?: (tasks: GanttTask[]) => void;
 }
 
-const GanttChart: React.FC<GanttChartProps> = ({ initialTasks = [] }) => {
+const GanttChart: React.FC<GanttChartProps> = ({ 
+  initialTasks = [],
+  onTasksChange
+}) => {
   const [tasks, setTasks] = useState<GanttTask[]>([]);
   const [displayTasks, setDisplayTasks] = useState<DisplayTask[]>([]);
   const [startDate, setStartDate] = useState<Date>(new Date());
@@ -50,6 +53,13 @@ const GanttChart: React.FC<GanttChartProps> = ({ initialTasks = [] }) => {
       fetchTasks();
     }
   }, [initialTasks]);
+  
+  // Notify parent when tasks change
+  useEffect(() => {
+    if (onTasksChange && tasks.length > 0) {
+      onTasksChange(tasks);
+    }
+  }, [tasks, onTasksChange]);
   
   // Calculate start and end dates based on tasks
   useEffect(() => {
