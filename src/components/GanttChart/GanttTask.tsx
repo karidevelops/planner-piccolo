@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { DisplayTask } from '@/models/GanttTask';
-import { formatDate, addDays } from '@/utils/dateUtils';
+import { formatDate } from '@/utils/dateUtils';
 import { Calendar, ChevronDown, ChevronRight, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -11,8 +11,6 @@ interface GanttTaskRowProps {
   collapsed: boolean;
   level: number;
   onClick: (task: DisplayTask) => void;
-  onTaskMove?: (taskId: string, daysDelta: number) => void;
-  columnWidth: number;
 }
 
 const GanttTaskRow: React.FC<GanttTaskRowProps> = ({ 
@@ -20,15 +18,9 @@ const GanttTaskRow: React.FC<GanttTaskRowProps> = ({
   onToggleCollapse, 
   collapsed, 
   level, 
-  onClick,
-  onTaskMove,
-  columnWidth
+  onClick
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [offset, setOffset] = useState(0);
-  const taskRef = useRef<HTMLDivElement>(null);
   
   // Determine task color based on status
   const getTaskColor = () => {
@@ -43,59 +35,6 @@ const GanttTaskRow: React.FC<GanttTaskRowProps> = ({
   
   // Determine if task has children
   const hasChildren = task.children && task.children.length > 0;
-  
-  // Mouse event handlers for dragging
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Don't start drag if this is a parent task with children
-    if (hasChildren) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-    setStartX(e.clientX);
-    setOffset(0);
-    
-    // Add global event listeners
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-  
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    const deltaX = e.clientX - startX;
-    setOffset(deltaX);
-    
-    // Update visual position of the task bar during drag
-    if (taskRef.current) {
-      taskRef.current.style.transform = `translateX(${deltaX}px)`;
-    }
-  };
-  
-  const handleMouseUp = (e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    setIsDragging(false);
-    
-    // Remove global event listeners
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-    
-    // Calculate days moved based on pixel offset and column width
-    const daysMoved = Math.round(offset / columnWidth);
-    
-    // Only update if actually moved
-    if (daysMoved !== 0 && onTaskMove) {
-      onTaskMove(task.id, daysMoved);
-    }
-    
-    // Reset task position
-    if (taskRef.current) {
-      taskRef.current.style.transform = '';
-    }
-    
-    setOffset(0);
-  };
   
   return (
     <div 
@@ -120,28 +59,14 @@ const GanttTaskRow: React.FC<GanttTaskRowProps> = ({
       </div>
       
       <div 
-        ref={taskRef}
-        className={cn(
-          "absolute gantt-task-bar", 
-          getTaskColor(),
-          isDragging && "opacity-75",
-          !hasChildren && "cursor-move"
-        )}
+        className={cn("absolute gantt-task-bar", getTaskColor())}
         style={{ 
           left: `${task.left + 64}px`, // 64px for the task name column
           width: `${task.width}px`,
           top: '50%',
           transform: 'translateY(-50%)'
         }}
-        onMouseDown={!hasChildren ? handleMouseDown : undefined}
-        onClick={(e) => {
-          // Prevent click event if we just finished dragging
-          if (isDragging || offset !== 0) {
-            e.stopPropagation();
-            return;
-          }
-          onClick(task);
-        }}
+        onClick={() => onClick(task)}
       >
         {/* Progress bar */}
         <div 
