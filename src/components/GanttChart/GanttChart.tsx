@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GanttTask, DisplayTask } from '@/models/GanttTask';
 import { daysBetween, addDays } from '@/utils/dateUtils';
 import GanttHeader from './GanttHeader';
@@ -33,33 +34,39 @@ const GanttChart: React.FC<GanttChartProps> = ({
   const [collapsedTasks, setCollapsedTasks] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<GanttTask | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const taskPositionsRef = useRef<Map<string, { left: number; width: number; top: number }>>(new Map());
   
+  // Initialize tasks
   useEffect(() => {
-    if (initialTasks.length > 0) {
-      setTasks(initialTasks);
-    } else {
-      const fetchTasks = async () => {
-        try {
+    const loadTasks = async () => {
+      try {
+        if (initialTasks.length > 0) {
+          setTasks(initialTasks);
+        } else {
           const fetchedTasks = await taskService.getTasks();
           setTasks(fetchedTasks);
-        } catch (error) {
-          console.error('Error fetching tasks:', error);
         }
-      };
-      
-      fetchTasks();
-    }
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+        toast.error("Virhe tehtävien lataamisessa");
+      }
+    };
+    
+    loadTasks();
   }, [initialTasks]);
   
+  // Notify parent about task changes
   useEffect(() => {
-    if (onTasksChange && tasks.length > 0) {
+    if (onTasksChange && tasks.length > 0 && isInitialized) {
       onTasksChange(tasks);
     }
-  }, [tasks, onTasksChange]);
+  }, [tasks, onTasksChange, isInitialized]);
   
+  // Calculate date range based on tasks
   useEffect(() => {
     if (tasks.length > 0) {
       let earliestStart = new Date(tasks[0].startDate);
@@ -74,6 +81,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
         }
       });
       
+      // Add some padding days
       earliestStart.setDate(earliestStart.getDate() - 2);
       latestEnd.setDate(latestEnd.getDate() + 2);
       
@@ -82,89 +90,91 @@ const GanttChart: React.FC<GanttChartProps> = ({
     }
   }, [tasks]);
   
-  useEffect(() => {
-    const calculateDisplayTasks = () => {
-      if (tasks.length === 0) return [];
+  // Calculate display tasks based on various dependencies
+  const calculateDisplayTasks = useCallback(() => {
+    if (tasks.length === 0) return [];
+    
+    const totalDays = daysBetween(startDate, endDate);
+    const startTime = startDate.getTime();
+    
+    const taskMap = new Map<string, GanttTask>();
+    tasks.forEach(task => taskMap.set(task.id, task));
+    
+    const rootTasks: DisplayTask[] = [];
+    const taskHierarchy = new Map<string, DisplayTask[]>();
+    
+    tasks.forEach(task => {
+      const taskStartDiff = daysBetween(startDate, new Date(task.startDate));
+      const taskDuration = task.duration;
       
-      const totalDays = daysBetween(startDate, endDate);
-      const startTime = startDate.getTime();
+      const displayTask: DisplayTask = {
+        ...task,
+        left: taskStartDiff * columnWidth,
+        width: taskDuration * columnWidth,
+        top: 0,
+        level: 0,
+        isVisible: true,
+        children: []
+      };
       
-      const taskMap = new Map<string, GanttTask>();
-      tasks.forEach(task => taskMap.set(task.id, task));
+      if (task.parentId === '0') {
+        rootTasks.push(displayTask);
+      } else {
+        if (!taskHierarchy.has(task.parentId)) {
+          taskHierarchy.set(task.parentId, []);
+        }
+        taskHierarchy.get(task.parentId)!.push(displayTask);
+      }
+    });
+    
+    const buildHierarchy = (task: DisplayTask, level: number): DisplayTask => {
+      const children = taskHierarchy.get(task.id) || [];
+      const updatedTask = { ...task, level, children: [] as DisplayTask[] };
       
-      const rootTasks: DisplayTask[] = [];
-      const taskHierarchy = new Map<string, DisplayTask[]>();
+      children.forEach(child => {
+        updatedTask.children.push(buildHierarchy(child, level + 1));
+      });
       
+      return updatedTask;
+    };
+    
+    const hierarchicalTasks = rootTasks.map(task => buildHierarchy(task, 0));
+    
+    const flattenHierarchy = (tasks: DisplayTask[], result: DisplayTask[] = [], topOffset = 0, collapsed = new Set<string>()): DisplayTask[] => {
       tasks.forEach(task => {
-        const taskStartDiff = daysBetween(startDate, new Date(task.startDate));
-        const taskDuration = task.duration;
+        const taskWithPosition = { ...task, top: topOffset, isVisible: true };
+        result.push(taskWithPosition);
+        let newTopOffset = topOffset + ROW_HEIGHT;
         
-        const displayTask: DisplayTask = {
-          ...task,
-          left: taskStartDiff * columnWidth,
-          width: taskDuration * columnWidth,
-          top: 0,
-          level: 0,
-          isVisible: true,
-          children: []
-        };
-        
-        if (task.parentId === '0') {
-          rootTasks.push(displayTask);
-        } else {
-          if (!taskHierarchy.has(task.parentId)) {
-            taskHierarchy.set(task.parentId, []);
-          }
-          taskHierarchy.get(task.parentId)!.push(displayTask);
+        if (task.children.length > 0 && !collapsed.has(task.id)) {
+          flattenHierarchy(task.children, result, newTopOffset, collapsed);
+          newTopOffset += task.children.length * ROW_HEIGHT;
         }
       });
       
-      const buildHierarchy = (task: DisplayTask, level: number): DisplayTask => {
-        const children = taskHierarchy.get(task.id) || [];
-        const updatedTask = { ...task, level, children: [] as DisplayTask[] };
-        
-        children.forEach(child => {
-          updatedTask.children.push(buildHierarchy(child, level + 1));
-        });
-        
-        return updatedTask;
-      };
-      
-      const hierarchicalTasks = rootTasks.map(task => buildHierarchy(task, 0));
-      
-      const flattenHierarchy = (tasks: DisplayTask[], result: DisplayTask[] = [], topOffset = 0, collapsed = new Set<string>()): DisplayTask[] => {
-        tasks.forEach(task => {
-          const taskWithPosition = { ...task, top: topOffset, isVisible: true };
-          result.push(taskWithPosition);
-          let newTopOffset = topOffset + ROW_HEIGHT;
-          
-          if (task.children.length > 0 && !collapsed.has(task.id)) {
-            flattenHierarchy(task.children, result, newTopOffset, collapsed);
-            newTopOffset += task.children.length * ROW_HEIGHT;
-          }
-        });
-        
-        return result;
-      };
-      
-      const flattenedTasks = flattenHierarchy(hierarchicalTasks, [], 0, collapsedTasks);
-      
-      taskPositionsRef.current.clear();
-      flattenedTasks.forEach(task => {
-        taskPositionsRef.current.set(task.id, {
-          left: task.left,
-          width: task.width,
-          top: task.top
-        });
-      });
-      
-      return flattenedTasks;
+      return result;
     };
     
+    const flattenedTasks = flattenHierarchy(hierarchicalTasks, [], 0, collapsedTasks);
+    
+    taskPositionsRef.current.clear();
+    flattenedTasks.forEach(task => {
+      taskPositionsRef.current.set(task.id, {
+        left: task.left,
+        width: task.width,
+        top: task.top
+      });
+    });
+    
+    return flattenedTasks;
+  }, [tasks, startDate, endDate, columnWidth, collapsedTasks]);
+  
+  // Update display tasks when dependencies change
+  useEffect(() => {
     if (tasks.length > 0 && startDate && endDate) {
       setDisplayTasks(calculateDisplayTasks());
     }
-  }, [tasks, startDate, endDate, columnWidth, collapsedTasks]);
+  }, [tasks, startDate, endDate, columnWidth, collapsedTasks, calculateDisplayTasks]);
   
   const handleToggleCollapse = (taskId: string) => {
     setCollapsedTasks(prev => {

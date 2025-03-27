@@ -49,6 +49,7 @@ const GanttTaskRow: React.FC<GanttTaskRowProps> = ({
     // Don't start drag if this is a parent task with children
     if (hasChildren) return;
     
+    e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
     setStartX(e.clientX);
@@ -121,9 +122,10 @@ const GanttTaskRow: React.FC<GanttTaskRowProps> = ({
       <div 
         ref={taskRef}
         className={cn(
-          "absolute gantt-task-bar cursor-move", 
+          "absolute gantt-task-bar", 
           getTaskColor(),
-          isDragging && "opacity-75"
+          isDragging && "opacity-75",
+          !hasChildren && "cursor-move"
         )}
         style={{ 
           left: `${task.left + 64}px`, // 64px for the task name column
@@ -131,10 +133,10 @@ const GanttTaskRow: React.FC<GanttTaskRowProps> = ({
           top: '50%',
           transform: 'translateY(-50%)'
         }}
-        onMouseDown={handleMouseDown}
+        onMouseDown={!hasChildren ? handleMouseDown : undefined}
         onClick={(e) => {
           // Prevent click event if we just finished dragging
-          if (offset !== 0) {
+          if (isDragging || offset !== 0) {
             e.stopPropagation();
             return;
           }
