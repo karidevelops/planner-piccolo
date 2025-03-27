@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,19 +36,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -96,6 +90,43 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-md shadow-sm border border-gray-100;
+  }
+  
+  .gantt-task-bar {
+    @apply relative rounded-full h-6 cursor-pointer transition-all duration-300 ease-out;
+  }
+  
+  .gantt-task-bar:hover {
+    @apply brightness-95 shadow-md transform scale-[1.02] -translate-y-[1px];
+  }
+  
+  .gantt-dependency-line {
+    @apply stroke-gantt-dependencyLine stroke-[1.5px];
+  }
+  
+  .gantt-grid-line {
+    @apply stroke-gantt-gridLine stroke-[1px];
+  }
+  
+  .gantt-tooltip {
+    @apply absolute z-50 glass-panel rounded-lg p-3 text-sm shadow-lg;
+    min-width: 200px;
+  }
+  
+  .task-progress-bar {
+    @apply absolute left-0 top-0 h-full rounded-full opacity-60 bg-white;
+    width: var(--progress-percentage);
+  }
+  
+  .date-header {
+    @apply text-xs font-medium text-gray-600 bg-gantt-headerBg sticky top-0 z-10 py-2 border-b;
   }
 }
