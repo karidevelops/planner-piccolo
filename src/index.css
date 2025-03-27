@@ -43,6 +43,15 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Gantt chart specific colors */
+    --gantt-notStarted: 220 13% 80%;
+    --gantt-inProgress: 142.1 76.2% 36.3%;
+    --gantt-late: 0 84.2% 60.2%;
+    --gantt-complete: 221.2 83.2% 53.3%;
+    --gantt-dependencyLine: 217.2 32.6% 50%;
+    --gantt-gridLine: 220 13% 91%;
+    --gantt-headerBg: 0 0% 98%;
   }
 
   .dark {
@@ -81,6 +90,15 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Gantt chart specific colors - dark mode */
+    --gantt-notStarted: 220 13% 40%;
+    --gantt-inProgress: 142.1 70.6% 45.3%;
+    --gantt-late: 0 72.2% 50.6%;
+    --gantt-complete: 217.2 91.2% 59.8%;
+    --gantt-dependencyLine: 217.2 32.6% 60%;
+    --gantt-gridLine: 240 3.7% 15.9%;
+    --gantt-headerBg: 222.2 84% 6.9%;
   }
 }
 
@@ -128,5 +146,16 @@
   
   .date-header {
     @apply text-xs font-medium text-gray-600 bg-gantt-headerBg sticky top-0 z-10 py-2 border-b;
+  }
+  
+  /* Add new animation for task updates */
+  @keyframes task-update-flash {
+    0% { box-shadow: 0 0 0 0 rgba(var(--primary), 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(var(--primary), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--primary), 0); }
+  }
+  
+  .task-updated {
+    animation: task-update-flash 1s ease-in-out;
   }
 }

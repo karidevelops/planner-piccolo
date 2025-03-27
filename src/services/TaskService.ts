@@ -1,4 +1,8 @@
 import { GanttTask } from "@/models/GanttTask";
+import { toast } from "sonner";
+
+// Base URL for the API - in a real app, you'd use an environment variable
+const API_BASE_URL = 'https://api.example.com/api/tasks';
 
 // Example data
 export const SAMPLE_TASKS: GanttTask[] = [
@@ -102,12 +106,51 @@ export const SAMPLE_TASKS: GanttTask[] = [
 
 export class TaskService {
   private tasks: GanttTask[] = SAMPLE_TASKS;
+  private useApi: boolean = false; // Set to true to use the actual API
 
   getTasks(): Promise<GanttTask[]> {
+    if (this.useApi) {
+      return fetch(API_BASE_URL)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
+        .catch(error => {
+          console.error('Error fetching tasks:', error);
+          toast.error('Tehtävien hakeminen epäonnistui');
+          // Fallback to local tasks
+          return [...this.tasks];
+        });
+    }
+    
     return Promise.resolve([...this.tasks]);
   }
 
   updateTask(updatedTask: GanttTask): Promise<GanttTask> {
+    if (this.useApi) {
+      return fetch(`${API_BASE_URL}/${updatedTask.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedTask)
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
+        .catch(error => {
+          console.error('Error updating task:', error);
+          toast.error('Tehtävän päivittäminen epäonnistui');
+          throw error;
+        });
+    }
+    
+    // Local update
     const index = this.tasks.findIndex(task => task.id === updatedTask.id);
     if (index !== -1) {
       this.tasks[index] = { ...updatedTask };
