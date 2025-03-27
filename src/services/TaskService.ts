@@ -105,7 +105,7 @@ export const SAMPLE_TASKS: GanttTask[] = [
 
 export class TaskService {
   private useApi: boolean = true; // Set to true to use Supabase
-  private tasks: GanttTask[] = [...SAMPLE_TASKS]; // Add the missing tasks property
+  private tasks: GanttTask[] = [...SAMPLE_TASKS]; // Local cache of tasks
 
   async getTasks(): Promise<GanttTask[]> {
     if (this.useApi) {
@@ -127,12 +127,17 @@ export class TaskService {
         }
         
         // Transform dates from strings to Date objects
-        return data.map((task: any) => ({
+        const parsedTasks = data.map((task: any) => ({
           ...task,
           startDate: new Date(task.startDate),
           endDate: new Date(task.endDate),
           dependencies: task.dependencies || []
         }));
+        
+        // Update local cache
+        this.tasks = parsedTasks;
+        
+        return parsedTasks;
       } catch (error) {
         console.error('Error fetching tasks:', error);
         toast.error('Tehtävien hakeminen epäonnistui');
@@ -152,8 +157,8 @@ export class TaskService {
         // Prepare task for database (convert Date objects to ISO strings)
         const taskForDb = {
           ...updatedTask,
-          startDate: updatedTask.startDate.toISOString(),
-          endDate: updatedTask.endDate.toISOString()
+          startDate: updatedTask.startDate instanceof Date ? updatedTask.startDate.toISOString() : updatedTask.startDate,
+          endDate: updatedTask.endDate instanceof Date ? updatedTask.endDate.toISOString() : updatedTask.endDate
         };
         
         const { data, error } = await supabase
@@ -210,8 +215,8 @@ export class TaskService {
       try {
         const taskForDb = {
           ...task,
-          startDate: task.startDate.toISOString(),
-          endDate: task.endDate.toISOString()
+          startDate: task.startDate instanceof Date ? task.startDate.toISOString() : task.startDate,
+          endDate: task.endDate instanceof Date ? task.endDate.toISOString() : task.endDate
         };
         
         const { data, error } = await supabase
@@ -255,8 +260,8 @@ export class TaskService {
         // Prepare tasks for database
         const tasksForDb = tasks.map(task => ({
           ...task,
-          startDate: task.startDate.toISOString(),
-          endDate: task.endDate.toISOString()
+          startDate: task.startDate instanceof Date ? task.startDate.toISOString() : task.startDate,
+          endDate: task.endDate instanceof Date ? task.endDate.toISOString() : task.endDate
         }));
         
         console.log('Saving tasks to Supabase:', tasksForDb);
@@ -274,6 +279,9 @@ export class TaskService {
           toast.error('Tehtävien tallentaminen epäonnistui');
           return false;
         }
+        
+        // Update local cache
+        this.tasks = [...tasks];
         
         toast.success('Kaikki tehtävät tallennettu');
         return true;

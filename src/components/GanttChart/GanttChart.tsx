@@ -37,7 +37,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const taskPositionsRef = useRef<Map<string, { left: number; width: number; top: number }>>(new Map());
   
-  // Fetch tasks on initial render
+  // Initialize tasks from props or fetch them
   useEffect(() => {
     if (initialTasks.length > 0) {
       setTasks(initialTasks);
@@ -90,6 +90,8 @@ const GanttChart: React.FC<GanttChartProps> = ({
   // Transform GanttTasks to DisplayTasks for rendering
   useEffect(() => {
     const calculateDisplayTasks = () => {
+      if (tasks.length === 0) return []; // Don't proceed if no tasks
+      
       const totalDays = daysBetween(startDate, endDate);
       const startTime = startDate.getTime();
       
@@ -176,7 +178,8 @@ const GanttChart: React.FC<GanttChartProps> = ({
       return flattenedTasks;
     };
     
-    if (tasks.length > 0) {
+    // Only calculate display tasks if we have tasks, start date, and end date
+    if (tasks.length > 0 && startDate && endDate) {
       setDisplayTasks(calculateDisplayTasks());
     }
   }, [tasks, startDate, endDate, columnWidth, collapsedTasks]); // Only run when these dependencies change

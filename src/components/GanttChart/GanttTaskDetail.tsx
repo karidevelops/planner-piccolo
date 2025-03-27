@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Clock, User, Link2, BarChart, Save } from 'lucide-react';
+import { Calendar, Clock, User, Link2, Save } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -29,30 +29,43 @@ const GanttTaskDetail: React.FC<GanttTaskDetailProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
   
-  const form = useForm<GanttTask>({
-    defaultValues: task || undefined
-  });
+  const form = useForm<GanttTask>();
   
   // Reset form when task changes
   useEffect(() => {
     if (task) {
-      form.reset({
-        ...task
-      });
+      // Clone the task to avoid modifying the original reference
+      const taskCopy = {
+        ...task,
+        // Ensure dates are properly copied as Date objects
+        startDate: new Date(task.startDate),
+        endDate: new Date(task.endDate),
+      };
+      form.reset(taskCopy);
     }
-  }, [task, form]);
+  }, [task, form, isOpen]); // Added isOpen to ensure form is reset when dialog opens
   
   if (!task) return null;
   
   const handleSave = (formData: GanttTask) => {
     try {
-      onSave(formData);
+      // Ensure dates are preserved from the original task
+      const updatedTask: GanttTask = {
+        ...formData,
+        startDate: task.startDate,
+        endDate: task.endDate,
+        duration: task.duration,
+        dependencies: task.dependencies
+      };
+      
+      onSave(updatedTask);
       setIsEditing(false);
       toast({
         title: "Tallennettu",
         description: "Tehtävän tiedot on päivitetty onnistuneesti",
       });
     } catch (error) {
+      console.error("Error saving task:", error);
       toast({
         title: "Virhe tallennuksessa",
         description: "Tehtävän tietojen tallentaminen epäonnistui",
@@ -207,7 +220,7 @@ const GanttTaskDetail: React.FC<GanttTaskDetailProps> = ({
               <FormLabel>Valmiusaste: {field.value}%</FormLabel>
               <FormControl>
                 <Slider
-                  defaultValue={[field.value]}
+                  value={[field.value || 0]}
                   max={100}
                   step={1}
                   onValueChange={(value) => field.onChange(value[0])}
@@ -221,7 +234,7 @@ const GanttTaskDetail: React.FC<GanttTaskDetailProps> = ({
         <div className="w-full bg-gray-200 rounded-full h-2.5">
           <div 
             className={cn("h-2.5 rounded-full", getStatusColor(task.status))}
-            style={{ width: `${form.watch('completePercentage')}%` }}
+            style={{ width: `${form.watch('completePercentage') || 0}%` }}
           ></div>
         </div>
         
@@ -236,7 +249,11 @@ const GanttTaskDetail: React.FC<GanttTaskDetailProps> = ({
   );
   
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) onClose();
+      // Reset editing mode when dialog closes
+      if (!open) setIsEditing(false);
+    }}>
       <DialogContent className="sm:max-w-[500px] animate-scale-in">
         <DialogHeader className="flex flex-row justify-between items-center">
           <DialogTitle className="text-xl">Tehtävän tiedot</DialogTitle>
