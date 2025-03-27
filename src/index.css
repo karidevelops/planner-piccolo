@@ -34,24 +34,6 @@
     --ring: 222.2 84% 4.9%;
 
     --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    
-    /* Gantt chart specific colors */
-    --gantt-notStarted: 220 13% 80%;
-    --gantt-inProgress: 142.1 76.2% 36.3%;
-    --gantt-late: 0 84.2% 60.2%;
-    --gantt-complete: 221.2 83.2% 53.3%;
-    --gantt-dependencyLine: 217.2 32.6% 50%;
-    --gantt-gridLine: 220 13% 91%;
-    --gantt-headerBg: 0 0% 98%;
   }
 
   .dark {
@@ -82,23 +64,6 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    
-    /* Gantt chart specific colors - dark mode */
-    --gantt-notStarted: 220 13% 40%;
-    --gantt-inProgress: 142.1 70.6% 45.3%;
-    --gantt-late: 0 72.2% 50.6%;
-    --gantt-complete: 217.2 91.2% 59.8%;
-    --gantt-dependencyLine: 217.2 32.6% 60%;
-    --gantt-gridLine: 240 3.7% 15.9%;
-    --gantt-headerBg: 222.2 84% 6.9%;
   }
 }
 
@@ -106,56 +71,74 @@
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background text-foreground;
   }
 }
 
-@layer components {
-  .glass-panel {
-    @apply bg-white/70 backdrop-blur-md shadow-sm border border-gray-100;
-  }
-  
-  .gantt-task-bar {
-    @apply relative rounded-full h-6 cursor-pointer transition-all duration-300 ease-out;
-  }
-  
-  .gantt-task-bar:hover {
-    @apply brightness-95 shadow-md transform scale-[1.02] -translate-y-[1px];
-  }
-  
-  .gantt-dependency-line {
-    @apply stroke-gantt-dependencyLine stroke-[1.5px];
-  }
-  
-  .gantt-grid-line {
-    @apply stroke-gantt-gridLine stroke-[1px];
-  }
-  
-  .gantt-tooltip {
-    @apply absolute z-50 glass-panel rounded-lg p-3 text-sm shadow-lg;
-    min-width: 200px;
-  }
-  
-  .task-progress-bar {
-    @apply absolute left-0 top-0 h-full rounded-full opacity-60 bg-white;
-    width: var(--progress-percentage);
-  }
-  
-  .date-header {
-    @apply text-xs font-medium text-gray-600 bg-gantt-headerBg sticky top-0 z-10 py-2 border-b;
-  }
-  
-  /* Add new animation for task updates */
-  @keyframes task-update-flash {
-    0% { box-shadow: 0 0 0 0 rgba(var(--primary), 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(var(--primary), 0); }
-    100% { box-shadow: 0 0 0 0 rgba(var(--primary), 0); }
-  }
-  
-  .task-updated {
-    animation: task-update-flash 1s ease-in-out;
-  }
+/* Gantt chart styles */
+.gantt-task-bar {
+  height: 24px;
+  border-radius: 4px;
+  position: relative;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  user-select: none;
+}
+
+.gantt-task-bar:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.gantt-task-bar.cursor-move:hover {
+  outline: 2px dashed rgba(255, 255, 255, 0.5);
+}
+
+.gantt-task-bar.cursor-move::before {
+  content: "⋮⋮";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+.task-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  width: var(--progress-percentage);
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.gantt-tooltip {
+  position: absolute;
+  z-index: 100;
+  min-width: 220px;
+  padding: 8px;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e2e8f0;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+/* Gantt chart colors */
+.bg-gantt-notStarted {
+  background-color: #94a3b8;
+}
+.bg-gantt-inProgress {
+  background-color: #0ea5e9;
+}
+.bg-gantt-late {
+  background-color: #ef4444;
+}
+.bg-gantt-complete {
+  background-color: #22c55e;
 }
