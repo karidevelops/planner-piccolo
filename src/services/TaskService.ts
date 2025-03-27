@@ -121,6 +121,11 @@ export class TaskService {
           return [...SAMPLE_TASKS];
         }
         
+        if (!data || data.length === 0) {
+          console.log('No tasks found in Supabase, using sample tasks');
+          return [...SAMPLE_TASKS];
+        }
+        
         // Transform dates from strings to Date objects
         return data.map((task: any) => ({
           ...task,
@@ -136,12 +141,14 @@ export class TaskService {
       }
     }
     
-    return Promise.resolve([...SAMPLE_TASKS]);
+    return Promise.resolve([...this.tasks]);
   }
 
   async updateTask(updatedTask: GanttTask): Promise<GanttTask> {
     if (this.useApi) {
       try {
+        console.log('Updating task in Supabase:', updatedTask);
+        
         // Prepare task for database (convert Date objects to ISO strings)
         const taskForDb = {
           ...updatedTask,
@@ -152,7 +159,7 @@ export class TaskService {
         const { data, error } = await supabase
           .from('tasks')
           .update(taskForDb)
-          .match({ id: updatedTask.id })
+          .eq('id', updatedTask.id)
           .select();
         
         if (error) {
@@ -160,6 +167,20 @@ export class TaskService {
           toast.error('Tehtävän päivittäminen epäonnistui');
           throw error;
         }
+        
+        if (!data || data.length === 0) {
+          // If task doesn't exist in DB, create it
+          console.log('Task not found, creating new task');
+          return this.createTask(updatedTask);
+        }
+        
+        // Update local cache
+        const taskIndex = this.tasks.findIndex(t => t.id === updatedTask.id);
+        if (taskIndex !== -1) {
+          this.tasks[taskIndex] = updatedTask;
+        }
+        
+        toast.success('Tehtävä päivitetty');
         
         // Transform back to GanttTask with Date objects
         return {
@@ -183,6 +204,50 @@ export class TaskService {
     return Promise.resolve({ ...updatedTask });
   }
 
+  // Helper method to create a new task if it doesn't exist
+  private async createTask(task: GanttTask): Promise<GanttTask> {
+    if (this.useApi) {
+      try {
+        const taskForDb = {
+          ...task,
+          startDate: task.startDate.toISOString(),
+          endDate: task.endDate.toISOString()
+        };
+        
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert(taskForDb)
+          .select();
+        
+        if (error) {
+          console.error('Error creating task:', error);
+          toast.error('Tehtävän luominen epäonnistui');
+          throw error;
+        }
+        
+        // Add to local cache
+        this.tasks.push(task);
+        
+        toast.success('Tehtävä luotu');
+        
+        return {
+          ...data[0],
+          startDate: new Date(data[0].startDate),
+          endDate: new Date(data[0].endDate),
+          dependencies: data[0].dependencies || []
+        };
+      } catch (error) {
+        console.error('Error creating task:', error);
+        toast.error('Tehtävän luominen epäonnistui');
+        throw error;
+      }
+    }
+    
+    // Local mode
+    this.tasks.push(task);
+    return Promise.resolve(task);
+  }
+
   // Function to save all tasks at once
   async saveAllTasks(tasks: GanttTask[]): Promise<boolean> {
     if (this.useApi) {
@@ -194,10 +259,15 @@ export class TaskService {
           endDate: task.endDate.toISOString()
         }));
         
+        console.log('Saving tasks to Supabase:', tasksForDb);
+        
         // Use upsert to handle both inserts and updates
         const { error } = await supabase
           .from('tasks')
-          .upsert(tasksForDb);
+          .upsert(tasksForDb, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
+          });
         
         if (error) {
           console.error('Error saving tasks:', error);
@@ -205,6 +275,7 @@ export class TaskService {
           return false;
         }
         
+        toast.success('Kaikki tehtävät tallennettu');
         return true;
       } catch (error) {
         console.error('Error saving tasks:', error);

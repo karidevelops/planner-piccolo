@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GanttTask, DisplayTask } from '@/models/GanttTask';
 import { daysBetween, addDays } from '@/utils/dateUtils';
@@ -52,7 +53,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
       
       fetchTasks();
     }
-  }, [initialTasks]);
+  }, [initialTasks]); // Only run when initialTasks changes
   
   // Notify parent when tasks change
   useEffect(() => {
@@ -84,7 +85,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
       setStartDate(earliestStart);
       setEndDate(latestEnd);
     }
-  }, [tasks]);
+  }, [tasks]); // Only run when tasks change
   
   // Transform GanttTasks to DisplayTasks for rendering
   useEffect(() => {
@@ -178,7 +179,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
     if (tasks.length > 0) {
       setDisplayTasks(calculateDisplayTasks());
     }
-  }, [tasks, startDate, endDate, columnWidth, collapsedTasks]);
+  }, [tasks, startDate, endDate, columnWidth, collapsedTasks]); // Only run when these dependencies change
   
   // Handle toggle task collapse
   const handleToggleCollapse = (taskId: string) => {
@@ -205,17 +206,18 @@ const GanttChart: React.FC<GanttChartProps> = ({
       // Update status based on completion percentage
       const taskWithUpdatedStatus = taskService.calculateTaskStatus(updatedTask);
       
-      // Save to backend/service
-      const savedTask = await taskService.updateTask(taskWithUpdatedStatus);
-      
-      // Update local state
+      // Update local state first (optimistic update)
       setTasks(prevTasks => 
         prevTasks.map(task => 
-          task.id === savedTask.id ? savedTask : task
+          task.id === updatedTask.id ? taskWithUpdatedStatus : task
         )
       );
+      
+      // Save to backend/service
+      await taskService.updateTask(taskWithUpdatedStatus);
     } catch (error) {
       console.error('Error updating task:', error);
+      // Could revert the optimistic update here if needed
     }
   };
   
