@@ -1,3 +1,4 @@
+
 import { GanttTask } from "@/models/GanttTask";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -104,6 +105,7 @@ export const SAMPLE_TASKS: GanttTask[] = [
 
 export class TaskService {
   private useApi: boolean = true; // Set to true to use Supabase
+  private tasks: GanttTask[] = [...SAMPLE_TASKS]; // Add the missing tasks property
 
   async getTasks(): Promise<GanttTask[]> {
     if (this.useApi) {
@@ -211,6 +213,8 @@ export class TaskService {
       }
     }
     
+    // In the local mode, just update the internal tasks array
+    this.tasks = [...tasks];
     return Promise.resolve(true);
   }
 
